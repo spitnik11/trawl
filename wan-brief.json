@@ -1,0 +1,22 @@
+{
+  "angle": "Transformation/Result",
+  "eyebrow": "AI · BUILT FOR OPERATORS",
+  "headline": "Ship the ad, not the brief.",
+  "subhead": "One idea in. A finished, on-brand motion ad out — no designer, no timeline.",
+  "cta": "See it work",
+  "visual_direction": "Infographic",
+  "visual_model": "wan",
+  "visual_subject": "a sleek SaaS analytics dashboard glowing on a dark desk, holographic charts, soft teal light",
+  "motion": "slow cinematic push-in",
+  "platform": "x",
+  "aspect": "16:9",
+  "duration": 3.0,
+  "fps": 30,
+  "brand": {
+    "name": "TRAWL",
+    "accent": "#3ecf8e",
+    "bg": "#0a0b0d",
+    "fg": "#f4f5f7",
+    "palette_words": "emerald green and deep charcoal"
+  }
+}

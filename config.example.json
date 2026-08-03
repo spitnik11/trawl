@@ -1,0 +1,117 @@
+{
+  "_comment": "Copy to config.json and fill in. NEVER commit config.json or paste it anywhere.",
+  "reddit": {
+    "_setup": "Run `python trawl.py setup` — it writes the keys here without echoing them.",
+    "enabled": true,
+    "client_id": "",
+    "client_secret": "",
+    "user_agent": "windows:trawl:0.1 (by /u/YOUR_REDDIT_USERNAME)",
+    "_subreddits": "Grouped by audience. 'builder' = people learning to build. 'business' = people with a problem and money to solve it.",
+    "subreddits": {
+      "builder": [
+        "ClaudeAI",
+        "ChatGPTCoding",
+        "learnprogramming",
+        "SideProject",
+        "nocode"
+      ],
+      "business": [
+        "smallbusiness",
+        "Entrepreneur",
+        "SaaS",
+        "solopreneur",
+        "freelance"
+      ]
+    },
+    "listing": "top",
+    "timeframe": "month",
+    "limit_per_sub": 40,
+    "_search": "Asks Reddit directly for the question shape we want, instead of pulling everything and filtering.",
+    "search_queries": [
+      "how can i",
+      "how do i",
+      "what do you use",
+      "is there a way"
+    ],
+    "search_limit": 40,
+    "_comments": "Recent comments become items too - the real question is often a reply, not a post.",
+    "include_comments": true,
+    "comment_limit": 100
+  },
+  "hackernews": {
+    "enabled": true,
+    "_note": "Repointed 2026-07-23 for the business pivot. Now hunts BUILD STORIES ('I built X with AI') rather than learner confusion, because the output is now 'I built {artifact}' post ideas. Low point counts are fine here - the idea engine clusters, so topical fit beats engagement.",
+    "queries": [
+      "Show HN built trading bot",
+      "I built with AI no code",
+      "built a dashboard for my business",
+      "automated my business with AI",
+      "Show HN landing page generator",
+      "non programmer built app"
+    ],
+    "hits_per_query": 30
+  },
+  "stackexchange": {
+    "_note": "Free, no auth, no approval queue. Every item is a question by construction - the exact shape Trawl ranks for. Covers the BUILDER audience well; does not cover business.",
+    "enabled": true,
+    "sites": [
+      "stackoverflow",
+      "softwareengineering"
+    ],
+    "_queries": "Repointed for the business pivot: hunt BUILD material, not learner confusion. Learning-shaped queries were producing 12 of 25 ideas in the 'Learning & AI' category, which is the wrong audience.",
+    "queries": [
+      "how do i build a dashboard",
+      "automate a report",
+      "generate invoices",
+      "scrape data into a spreadsheet",
+      "built my first app"
+    ],
+
+    "_business": "TESTED: 'quant' (Quantitative Finance) is genuinely good for trading/finance build material - 96v/65v/50v on 'how do i build' and 'automate'. 'money' (Personal Finance) was REJECTED - it returns credit-card and mortgage advice, not buildable tools. 'workplace' was REJECTED earlier - high vote counts on HR drama, the exact high-engagement-junk pattern the ranker was fixed for.",
+    "business_sites": [
+      "quant",
+      "freelancing",
+      "webmasters"
+    ],
+    "business_queries": [
+      "how do i build",
+      "how can i automate",
+      "is there a tool",
+      "backtest strategy",
+      "how do i track"
+    ],
+
+    "per_query": 25,
+    "max_age_days": 365
+  },
+
+  "_ai_feelers": "Free, no-auth AI-news sources. kind=ai-feature, bypass ranking, feed the ai-feature post type ('what's new in AI').",
+  "huggingface": {
+    "enabled": true,
+    "limit": 25
+  },
+  "github": {
+    "enabled": true,
+    "query": "ai agent",
+    "since_days": 45,
+    "limit": 15
+  },
+  "arxiv": {
+    "enabled": true,
+    "categories": ["cs.AI", "cs.LG", "cs.CL"],
+    "limit": 15
+  },
+
+  "_posts_dir": "Where the built posts + POSTING-LOG + approvals + requests live. The review board (the app's front door) reads/writes here. Change this if you move the Posts folder.",
+  "posts_dir": "C:\\Users\\losth\\Documents\\ClaudeBrain\\02 Projects\\AI-Beginner-Business\\Posts",
+
+  "_ideas": "Curated content ideas from the vault Ideas-Bank, imported into the pool on every fetch (kind=business, bypass the junk gate). Edit the JSONL in the vault; run `python trawl.py fetch` to pull them in.",
+  "ideas": {
+    "enabled": true,
+    "path": "C:\\Users\\losth\\Documents\\ClaudeBrain\\04 Knowledge\\Ideas-Bank\\ideas.jsonl"
+  },
+
+  "server": {
+    "port": 8420
+  }
+}

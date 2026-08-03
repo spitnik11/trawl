@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trawl — generator</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231A1E1A'/%3E%3Crect x='13' y='35' width='9' height='16' fill='%23C8341F'/%3E%3Crect x='27.5' y='25' width='9' height='26' fill='%23E8562F'/%3E%3Crect x='42' y='13' width='9' height='38' fill='%23FF7960'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#faf9f7; --card:#fff; --line:#e8e4de; --ink:#1c1a17; --mut:#6b6660; --sub:#9a948c;
+    --accent:#c8341f; --accent-ink:#fff; --soft:#f6e3df;
+    --r:12px;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,Consolas,"SF Mono",Menlo,monospace;
+  }
+  @media(prefers-color-scheme:dark){:root{
+    --bg:#16110e; --card:#1e1815; --line:#332b26; --ink:#e4d9cf; --mut:#a08f82; --sub:#7e6e63;
+    --accent:#ff5b3d; --accent-ink:#160a06; --soft:#2e1913;}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;
+    line-height:1.55;-webkit-font-smoothing:antialiased}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 24px;
+    background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  h1{font-size:19px;font-weight:700;margin:0;letter-spacing:-.01em}
+  h1 span{color:var(--accent)}
+  .stats{font-size:14px;color:var(--mut)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--sub);display:inline-block;margin-right:6px}
+  .dot.on{background:#4a7a3a}.dot.busy{background:var(--accent);animation:pulse 1.2s infinite}
+  @keyframes pulse{50%{opacity:.3}}
+  .spacer{flex:1}
+  main{max-width:760px;margin:0 auto;padding:24px 20px 80px;display:flex;flex-direction:column;gap:18px}
+  .gen{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
+  .gen h2{font-size:16px;margin:0 0 2px}
+  .gen p{font-size:13px;color:var(--mut);margin:0 0 12px}
+  .genrow{display:flex;align-items:center;gap:10px}
+  input[type=number]{width:64px;font:inherit;font-size:16px;font-weight:600;text-align:center;
+    padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+  button{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--bg);
+    color:var(--ink);border-radius:8px;padding:8px 14px;cursor:pointer;transition:.12s}
+  button:hover{border-color:var(--sub)}
+  button:active{transform:translateY(1px)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  button.primary:hover{filter:brightness(1.06)}
+  button:disabled{opacity:.5;cursor:default}
+  .results{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .spec{border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--bg)}
+  .spec .h{font-size:15px;font-weight:500;line-height:1.4}
+  .spec .m{font-size:12px;color:var(--sub);margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .spec .m .tag{border:1px solid var(--line);border-radius:999px;padding:2px 8px}
+  .spec .acts{margin-top:8px;display:flex;gap:6px}
+  .spec .acts button{font-size:12px;padding:5px 10px}
+  .note{font-size:13px;color:var(--sub);text-align:center;padding:6px}
+  #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(16px);
+    background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;font-size:14px;
+    opacity:0;transition:.2s;pointer-events:none;z-index:10}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Trawl<span>//</span></h1>
+  <span class="stats"><span class="dot" id="dot"></span><span id="stats">loading…</span></span>
+  <span class="spacer"></span>
+  <button id="refreshBtn">Refresh pool</button>
+</header>
+<main>
+  <p class="note">Generator console. Draws random material from the pool → post specs.
+    For the real workflow (queue + build + review) use the <b>review board</b>.</p>
+
+  <section class="gen" data-type="linkedin">
+    <h2>LinkedIn — explain / educate</h2><p>Operator-authority posts, gated funnel.</p>
+    <div class="genrow"><input type="number" min="1" max="10" value="3">
+      <button class="primary">Generate</button></div>
+    <div class="results"></div>
+  </section>
+  <section class="gen" data-type="twitter">
+    <h2>X / Twitter — engagement</h2><p>Punchy, reply-keyword funnel.</p>
+    <div class="genrow"><input type="number" min="1" max="10" value="3">
+      <button class="primary">Generate</button></div>
+    <div class="results"></div>
+  </section>
+  <section class="gen" data-type="aifeature">
+    <h2>AI feature — what's new</h2><p>Educational posts from Hugging Face / GitHub / arXiv.</p>
+    <div class="genrow"><input type="number" min="1" max="10" value="3">
+      <button class="primary">Generate</button></div>
+    <div class="results"></div>
+  </section>
+  <section class="gen" data-type="ad">
+    <h2>Ad — beautiful ad creative</h2><p>Showcase ads built by the AI workflow; draws on the Ad-Copy-KB.</p>
+    <div class="genrow"><input type="number" min="1" max="10" value="3">
+      <button class="primary">Generate</button></div>
+    <div class="results"></div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1800);}
+async function copy(text){try{await navigator.clipboard.writeText(text);return true;}catch(e){
+  const a=document.createElement('textarea');a.value=text;a.style.cssText='position:fixed;left:-9999px';
+  document.body.appendChild(a);a.select();const ok=document.execCommand('copy');a.remove();return ok;}}
+
+async function stats(){
+  try{
+    const d=await(await fetch('/api/stats')).json();
+    document.getElementById('dot').className='dot '+(d.fetching?'busy':'on');
+    document.getElementById('stats').textContent=
+      `${d.business} business · ${d.ai_feature} AI-feature · data ${d.age_h}h old`;
+  }catch(e){document.getElementById('dot').className='dot';document.getElementById('stats').textContent='offline';}
+}
+
+document.querySelectorAll('.gen').forEach(sec=>{
+  const type=sec.dataset.type, btn=sec.querySelector('button'), inp=sec.querySelector('input'),
+        box=sec.querySelector('.results');
+  btn.onclick=async()=>{
+    const n=Math.max(1,Math.min(+inp.value||3,10));
+    btn.disabled=true;btn.textContent='Generating…';
+    try{
+      const d=await(await fetch(`/api/generate?type=${type}&n=${n}`)).json();
+      const specs=d.specs||[];
+      if(!specs.length){box.innerHTML='<div class="note">Pool empty for this type — hit Refresh pool.</div>';return;}
+      box.innerHTML=specs.map((s,i)=>`
+        <div class="spec">
+          <div class="h">${esc(s.hook)}</div>
+          <div class="m"><span class="tag">${esc(s.category||type)}</span>
+            <span class="tag">${esc(s.style)}</span>
+            ${s.keyword?`<span class="tag">${esc(s.keyword)}</span>`:''}</div>
+          <div class="acts">
+            <button data-h="${i}">Copy hook</button>
+            <button data-p="${i}">Copy build prompt</button></div>
+        </div>`).join('');
+      box.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>copy(specs[+b.dataset.h].hook).then(()=>toast('hook copied')));
+      box.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>copy(specs[+b.dataset.p].prompt).then(()=>toast('build prompt copied — paste to Claude')));
+    }catch(e){box.innerHTML='<div class="note">Generate failed — is the pool populated?</div>';}
+    finally{btn.disabled=false;btn.textContent='Generate';}
+  };
+});
+
+document.getElementById('refreshBtn').onclick=async e=>{
+  e.target.disabled=true;e.target.textContent='Fetching…';
+  await fetch('/api/refresh');
+  setTimeout(()=>{e.target.disabled=false;e.target.textContent='Refresh pool';stats();},3000);
+};
+
+// heartbeat — the desktop watchdog self-exits after 45s without a ping
+async function ping(){try{await fetch('/api/ping');}catch(e){}}
+ping();setInterval(ping,10000);
+stats();setInterval(stats,15000);
+addEventListener('keydown',e=>{if(e.key==='Escape')window.close();});
+</script>
+</body>
+</html>
