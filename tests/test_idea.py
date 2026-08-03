@@ -9,7 +9,7 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
 import idea  # noqa: E402
 
 # Business pool (pain/build material). generate(...,"linkedin"/"twitter") draws from these.

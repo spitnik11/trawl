@@ -5,7 +5,7 @@ import json
 import time
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "trawl.db"
+DB_PATH = Path(__file__).resolve().parent.parent / "trawl.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS items (

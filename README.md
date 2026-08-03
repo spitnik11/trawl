@@ -324,15 +324,17 @@ and what your book teaches.
 ## Layout
 
 ```
-trawl.py             entry point + local HTTP server
-sources.py           Reddit (OAuth), Hacker News, manual paste
-rank.py              scoring + theme buckets
-idea.py              idea synthesis from the pool
-prompt.py            build-prompt generation
-board.py             review board (posts, approvals, queue)
-library.py           notes index over past posts
-ad.py / render.py / shot.py   motion-ad brief → rendered mp4
-store.py             SQLite (stdlib), dedupe, seen-tracking
+trawl.py             entry-point shim — puts core/ on the path, calls cli.main()
+core/                the application (import each other by bare name)
+  cli.py             CLI + local HTTP server (was trawl.py)
+  sources.py         Reddit (OAuth), Hacker News, manual paste
+  rank.py            scoring + theme buckets
+  idea.py            idea synthesis from the pool
+  prompt.py          build-prompt generation
+  board.py           review board (posts, approvals, queue)
+  library.py         notes index over past posts
+  ad.py render.py shot.py   motion-ad brief → rendered mp4
+  store.py           SQLite (stdlib), dedupe, seen-tracking
 
 ui/index.html        dashboard
 config.example.json  template — copy to config.json
