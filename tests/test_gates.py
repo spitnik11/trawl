@@ -1,4 +1,4 @@
-"""Regression test for the filter gates.  Run:  python test_gates.py
+"""Regression test for the filter gates.  Run:  python tests/test_gates.py
 
 Exists because two audits found the same class of bug in opposite directions:
 
@@ -12,8 +12,9 @@ GOOD must all survive, BAD must be dropped or penalised.
 
 import sys
 import time
+from pathlib import Path
 
-sys.path.insert(0, __file__.rsplit("\\", 1)[0] if "\\" in __file__ else ".")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import rank  # noqa: E402
 
 # Must all survive. These are the posts Trawl exists to find.

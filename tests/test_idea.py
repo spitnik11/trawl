@@ -1,4 +1,4 @@
-"""Contract tests for idea.generate().  python test_idea.py
+"""Contract tests for idea.generate().  python tests/test_idea.py
 
 No test framework — stdlib only, same rule as the rest of the project. These assert the output
 contract other code depends on (trawl.py /api/generate, review.py queue), not the wording of any
@@ -7,8 +7,10 @@ one hook. generate() draws at RANDOM, so tests check invariants, never byte-iden
 
 import re
 import sys
+from pathlib import Path
 
-import idea
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import idea  # noqa: E402
 
 # Business pool (pain/build material). generate(...,"linkedin"/"twitter") draws from these.
 FIXTURE = [
@@ -49,7 +51,7 @@ def check(cond, msg):
 
 
 def test_business_types():
-    for ptype, verb in (("linkedin", "comment"), ("twitter", "reply")):
+    for ptype, mode_hook in (("linkedin", "hook_edu"), ("twitter", "hook_promo")):
         print(ptype)
         specs = idea.generate(FIXTURE, ptype, 3)
         check(1 <= len(specs) <= 3, f"{ptype}: 1-3 specs from a 4-item pool (got {len(specs)})")
@@ -58,8 +60,9 @@ def test_business_types():
             check(bool(s["hook"].strip()), f"{ptype}: hook non-empty on {s['id']}")
             check(s["style"] == ptype and s["post_type"] == ptype, f"{ptype}: style/type tagged")
             check(s["keyword"].isupper() and " " not in s["keyword"], f"{ptype}: keyword one uppercase word")
-            # the top-level hook must match the mode's voice (the bug the review agent caught)
-            check(verb in s["hook"].lower(), f"{ptype}: hook uses '{verb}' (matches mode), not the other")
+            # the top-level hook must match the mode's voice: educational for linkedin (teach-first,
+            # no "comment KEYWORD" gate since 2026-07-27), promo for twitter. See idea.generate().
+            check(s["hook"] == s[mode_hook], f"{ptype}: top-level hook matches its mode ({mode_hook})")
             check(not re.search(r"\$[\d,]{3,}", s["hook_promo"]), f"{ptype}: no invented income figure")
         ids = [s["id"] for s in specs]
         check(len(ids) == len(set(ids)), f"{ptype}: no duplicate specs")

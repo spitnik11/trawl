@@ -223,7 +223,7 @@ to be ranked has already been judged to have something worth building from.
 **Junk is a penalty, never a drop**, and every gate that can drop an item reads the **title
 only**. Both rules were learned the hard way — see below.
 
-Tune the constants at the top of `rank.py`. Then run `python test_gates.py`.
+Tune the constants at the top of `rank.py`. Then run `python tests/test_gates.py`.
 
 ---
 
@@ -327,9 +327,22 @@ and what your book teaches.
 trawl.py             entry point + local HTTP server
 sources.py           Reddit (OAuth), Hacker News, manual paste
 rank.py              scoring + theme buckets
+idea.py              idea synthesis from the pool
 prompt.py            build-prompt generation
+board.py             review board (posts, approvals, queue)
+library.py           notes index over past posts
+ad.py / render.py / shot.py   motion-ad brief → rendered mp4
 store.py             SQLite (stdlib), dedupe, seen-tracking
+
 ui/index.html        dashboard
+config.example.json  template — copy to config.json
+tests/               regression + contract tests (python tests/test_gates.py)
+scripts/             dev tooling (make-icon.py)
+assets/              trawl.ico
+docs/                DESIGN.md + design notes
+prototypes/          experimental wan-video workflows
+
 config.json          your keys — gitignored, never commit
 trawl.db             local data — gitignored
+out/                 rendered ads — gitignored
 ```

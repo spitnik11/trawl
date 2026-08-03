@@ -7,14 +7,14 @@ stdlib-only and adding a build-time-only dependency for one 15KB file isn't wort
 The mark matches the inline SVG favicon in ui/index.html — three ascending signal bars on a
 dark rounded tile — so the desktop shortcut, the window and the taskbar all agree.
 
-    python make-icon.py
+    python scripts/make-icon.py
 """
 
 import struct
 import zlib
 from pathlib import Path
 
-OUT = Path(__file__).parent / "trawl.ico"
+OUT = Path(__file__).resolve().parent.parent / "assets" / "trawl.ico"
 
 BG = (0x12, 0x0D, 0x0B)
 BARS = [  # x, y, w, h as fractions of the tile, plus colour — ascending, brightening
