@@ -44,55 +44,6 @@ ANGLES = [
     "User-Generated/Review Highlight",
 ]
 
-HEADLINE_FORMULAS = {
-    "benefit": [
-        "Get {result} without {sacrifice}",
-        "{result} in {timeframe} or your money back",
-        "The fastest way to {outcome}",
-    ],
-    "curiosity": [
-        "The {adjective} truth about {topic}",
-        "{number} things you didn't know about {topic}",
-        "What happens when you {action} for {timeframe}",
-    ],
-    "social_proof": [
-        "Why {number} {people} switched to {product}",
-        "{rating} — here's what customers are saying",
-        "The {category} {demographic} swear by",
-    ],
-    "comparison": [
-        "{product} vs {alternative}: the honest truth",
-        "We tested {number} {products}. This one won.",
-        "The ${low} alternative to ${high} {brand}",
-    ],
-    "urgency": [
-        "{offer} ends {time}",
-        "{number} sold today — {remaining} remaining",
-        "Your last chance to get {product} at {price}",
-    ],
-}
-
-VISUAL_STYLES = [
-    "Hero Product", "Lifestyle", "Flat Lay", "Before/After", "Infographic",
-    "Testimonial Card", "Comparison", "Text-Heavy", "UGC Screenshot", "Ingredient/Feature",
-]
-
-HOOK_FORMULAS = {
-    "Pattern Interrupt": {"template": "Stop scrolling if you {audience}", "platform": "TikTok, Reels"},
-    "Question Hook":     {"template": "What if I told you {claim}?", "platform": "Educational, B2B"},
-    "Bold Claim":        {"template": "{product} replaced my {expensive_alternative}", "platform": "Competitive DTC"},
-    "POV Hook":          {"template": "POV: You finally found a {product} that {solves}", "platform": "Lifestyle, Gen Z"},
-    "Stat/Authority":    {"template": "{number} people can't be wrong", "platform": "Health/beauty"},
-}
-
-SCRIPT_STRUCTURES = {
-    "Problem-Agitate-Solve": ["Problem (2-3s)", "Agitate (3-5s)", "Solve (5-8s)"],
-    "Feature Cascade":       ["Hero feature (3-4s)", "Support 1 (2-3s)", "Support 2 (2-3s)", "Proof (2-3s)"],
-    "Social Proof Stack":    ["Testimonial (3-4s)", "Visual proof (3-4s)", "Volume proof (2-3s)", "Urgency (2-3s)"],
-    "Before/After":          ["Before (3-5s)", "Transform (2-3s)", "After (3-5s)", "How to get (2-3s)"],
-    "Day-in-the-Life":       ["Morning (3-4s)", "Key moment (3-4s)", "Result (3-4s)", "Invite (2-3s)"],
-}
-
 # aspect -> (w, h) [even dims for yuv420p]; optimal length + default sound from the platform matrix.
 ASPECTS = {"1:1": (1080, 1080), "4:5": (1080, 1350), "9:16": (1080, 1920), "16:9": (1920, 1080)}
 PLATFORM_MATRIX = {
@@ -243,17 +194,6 @@ def save_to_posts(brief: dict, mp4_path: str, posts_dir) -> str:
         f"## Hook\n> {brief['headline']}\n\n## Caption\n{brief['subhead']} {brief.get('cta','')}\n",
         encoding="utf-8")
     return str(folder)
-
-
-def suggest_headlines(driver: str, **slots) -> list[str]:
-    """Fill a Creatify headline formula family with provided slots (missing slots left as {tokens})."""
-    out = []
-    for f in HEADLINE_FORMULAS.get(driver, []):
-        try:
-            out.append(f.format(**slots))
-        except (KeyError, IndexError):
-            out.append(f)  # leave unfilled tokens visible so the gap is obvious
-    return out
 
 
 # ============================================================================

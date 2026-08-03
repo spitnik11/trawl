@@ -112,11 +112,6 @@ def upsert(conn, item):
     return first_seen < now  # True if we'd seen it before
 
 
-def is_known(conn, item_id):
-    row = conn.execute("SELECT 1 FROM items WHERE id = ?", (item_id,)).fetchone()
-    return row is not None
-
-
 def top(conn, n=25, include_posted=False):
     q = "SELECT * FROM items"
     if not include_posted:
@@ -141,13 +136,6 @@ def pool(conn, kind=None, n=40, include_posted=True):
     q += " ORDER BY RANDOM() LIMIT ?"
     args.append(n)
     return [dict(r) for r in conn.execute(q, args).fetchall()]
-
-
-
-
-def mark_posted(conn, item_id, value=1):
-    conn.execute("UPDATE items SET posted = ? WHERE id = ?", (value, item_id))
-    conn.commit()
 
 
 def stats(conn):
