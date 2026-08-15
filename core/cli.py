@@ -76,6 +76,38 @@ def _run_ad_job(job_id, note, mode, aspect):
                    msg="Cancelled" if cancelled else str(e)[:400])
 
 
+def do_shot(args):
+    """Capture poster PNG(s) for one slug or every post with poc.html. Additive only."""
+    force = bool(getattr(args, "force", False))
+    slugs = []
+    if getattr(args, "all", False):
+        slugs = [p["slug"] for p in board.read_posts() if p.get("has_poc")]
+        if not slugs:
+            print("No posts with poc.html found.")
+            return 1
+    elif args.slug:
+        slugs = [args.slug]
+    else:
+        print("usage: python trawl.py shot <slug> | --all [--force] [--open]")
+        return 2
+
+    ok = 0
+    for slug in slugs:
+        try:
+            info = board.ensure_poster(slug, force=force)
+            flag = "cached" if info["cached"] else "captured"
+            print(f"OK  {slug}  ({flag}, {info['bytes']} bytes)")
+            print(f"    {info['path']}")
+            print(f"    {info['export']}")
+            ok += 1
+        except Exception as e:
+            print(f"ERR {slug}: {e}")
+    if getattr(args, "open", False):
+        board.open_folder(exports=True)
+    print(f"Done — {ok}/{len(slugs)} posters ready in Posts\\_exports")
+    return 0 if ok else 1
+
+
 def do_setup():
     """Interactive Reddit credential entry. The secret is never echoed or logged."""
     import getpass
@@ -316,12 +348,15 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-    def _send(self, code, body, ctype="application/json"):
+    def _send(self, code, body, ctype="application/json", extra_headers=None):
         data = body if isinstance(body, bytes) else body.encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(data)))
+        if extra_headers:
+            for k, v in extra_headers.items():
+                self.send_header(k, v)
         self.end_headers()
         try:
             self.wfile.write(data)
@@ -370,6 +405,18 @@ class Handler(BaseHTTPRequestHandler):
             if data is not None:
                 return self._send(200, data, "video/mp4")
             return self._send(404, "not found", "text/plain")
+
+        # Saved PNG posters (written by POST /api/screenshot → Posts/<slug>/poster.png).
+        m = re.match(r"/png/([\w-]+)$", u.path)
+        if m:
+            slug = m.group(1)
+            data = board.poster_bytes(slug)
+            if data is None:
+                return self._send(404, "not found", "text/plain")
+            headers = None
+            if q.get("download", ["0"])[0] in ("1", "true", "yes"):
+                headers = {"Content-Disposition": f'attachment; filename="{slug}.png"'}
+            return self._send(200, data, "image/png", extra_headers=headers)
 
         if u.path == "/api/ping":
             _state["last_ping"] = time.time()
@@ -480,6 +527,27 @@ class Handler(BaseHTTPRequestHandler):
                 pass
             return self._send(200, json.dumps({"ok": True, "queued": queued}))
 
+        if u.path == "/api/screenshot":
+            # Capture poc.html → poster.png (and Posts/_exports/<slug>.png). Additive only.
+            slug = payload.get("slug") or ""
+            force = bool(payload.get("force"))
+            try:
+                info = board.ensure_poster(slug, force=force)
+            except ValueError as e:
+                return self._send(400, json.dumps({"ok": False, "error": str(e)}))
+            except Exception as e:
+                return self._send(500, json.dumps({"ok": False, "error": str(e)[:400]}))
+            return self._send(200, json.dumps({"ok": True, **info}))
+
+        if u.path == "/api/open_folder":
+            # Reveal a post folder (or the central _exports mirror) in Explorer.
+            slug = payload.get("slug") or None
+            exports = bool(payload.get("exports")) or not slug
+            ok = board.open_folder(slug=slug, exports=exports)
+            if not ok:
+                return self._send(404, json.dumps({"ok": False, "error": "folder not found"}))
+            return self._send(200, json.dumps({"ok": True}))
+
         return self._send(404, json.dumps({"error": "no route"}))
 
 
@@ -540,8 +608,16 @@ def main():
     a.add_argument("--note", default=None, help="compose a brief from a free-text direction note")
     a.add_argument("--to-posts", action="store_true", help="drop the finished ad into the review board")
     a.add_argument("-o", "--outdir", default="out")
+    c = sub.add_parser("carousel")     # slide spec -> LinkedIn PDF "document post"
+    c.add_argument("spec", nargs="?", help="path to a carousel spec.json (omit for the demo)")
+    c.add_argument("-o", "--outdir", default="out")
     t = sub.add_parser("top")
     t.add_argument("-n", type=int, default=15)
+    s = sub.add_parser("shot", help="capture post poster(s) as PNG via shot.py")
+    s.add_argument("slug", nargs="?", help="post slug (omit with --all)")
+    s.add_argument("--all", action="store_true", help="capture every post that has poc.html")
+    s.add_argument("--force", action="store_true", help="re-capture even if poster.png exists")
+    s.add_argument("--open", action="store_true", help="open Posts/_exports in Explorer after")
 
     args = ap.parse_args()
     cmd = args.cmd or "app"
@@ -565,9 +641,18 @@ def main():
             print("   review board ->", ad.save_to_posts(brief, mp4, posts_dir))
         return 0
 
+    if cmd == "carousel":
+        import carousel
+        spec = (json.loads(Path(args.spec).read_text("utf-8")) if args.spec
+                else carousel.demo_spec())
+        print("->", carousel.make_carousel(spec, args.outdir))
+        return 0
+
     cfg = load_config()
     posts_dir = cfg.get("posts_dir", DEFAULT_POSTS_DIR)
     board.configure(posts_dir)
+    if cmd == "shot":
+        return do_shot(args)
     if cmd == "library":
         lib = library.refresh(posts_dir)
         print(f"Library rebuilt: {lib['count']} posts -> {posts_dir}\\LIBRARY.md (+ library.json)")

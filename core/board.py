@@ -16,18 +16,34 @@ session risks the account).
 Stdlib only.
 """
 import json
+import os
 import re
+import shutil
+import subprocess
 import time
 from pathlib import Path
 
 # Set by trawl.py at startup from config["posts_dir"]. Everything below reads/writes under it.
 POSTS_DIR = None
 
+# PNG export layout (additive — never renames/deletes poc.html or post.md):
+#   Posts/<slug>/poster.png     canonical screenshot next to the source HTML
+#   Posts/_exports/<slug>.png   central mirror (hardlink when possible, else copy)
+POSTER_NAME = "poster.png"
+EXPORTS_NAME = "_exports"
+# 4:5 social-friendly frame; tall enough for most single-card posters.
+POSTER_W, POSTER_H = 1080, 1350
+POSTER_WAIT_MS = 2000
+
 
 def configure(posts_dir):
     global POSTS_DIR
     POSTS_DIR = Path(posts_dir)
     return POSTS_DIR
+
+
+def _valid_slug(slug):
+    return bool(re.fullmatch(r"[\w-]+", slug or ""))
 
 
 def _approvals_path():
@@ -123,6 +139,7 @@ def read_posts():
                 else ad_body or li_body or x_body if style in ("ad", "poc")
                 else li_body or x_body or hook)
         lg = log.get(folder.name, {})
+        poster = folder / POSTER_NAME
         posts.append({
             "slug": folder.name,
             "artifact": fm.get("artifact", folder.name),
@@ -139,6 +156,7 @@ def read_posts():
             "li_body": li_body,
             "has_poc": poc.exists(),
             "has_video": vid.exists(),
+            "has_poster": poster.exists() and poster.stat().st_size > 0,
             "mtime": folder.stat().st_mtime,
         })
     return posts
@@ -158,7 +176,7 @@ def read_requests():
 
 def poc_bytes(slug):
     """Return the bytes of a post's poc.html, or None. `slug` is validated before we touch disk."""
-    if not re.fullmatch(r"[\w-]+", slug or ""):
+    if not _valid_slug(slug):
         return None
     f = POSTS_DIR / slug / "poc.html"
     return f.read_bytes() if f.exists() else None
@@ -166,10 +184,114 @@ def poc_bytes(slug):
 
 def video_bytes(slug):
     """Return the bytes of a post's ad.mp4, or None. `slug` is validated (path-traversal guard)."""
-    if not re.fullmatch(r"[\w-]+", slug or ""):
+    if not _valid_slug(slug):
         return None
     f = POSTS_DIR / slug / "ad.mp4"
     return f.read_bytes() if f.exists() else None
+
+
+def poster_path(slug):
+    """Path to Posts/<slug>/poster.png, or None if slug is invalid."""
+    if not _valid_slug(slug):
+        return None
+    return POSTS_DIR / slug / POSTER_NAME
+
+
+def poster_bytes(slug):
+    """Return the bytes of a post's poster.png, or None."""
+    p = poster_path(slug)
+    return p.read_bytes() if p is not None and p.exists() else None
+
+
+def exports_dir():
+    """Central folder of exported PNGs (created on demand). Safe to open in Explorer."""
+    d = POSTS_DIR / EXPORTS_NAME
+    d.mkdir(exist_ok=True)
+    return d
+
+
+def _mirror_export(src, slug):
+    """Mirror src into Posts/_exports/<slug>.png (hardlink when free, else copy)."""
+    dest = exports_dir() / f"{slug}.png"
+    if dest.exists() or dest.is_symlink():
+        try:
+            dest.unlink()
+        except OSError:
+            pass
+    try:
+        os.link(src, dest)  # same-volume NTFS hardlink — no double disk use
+    except OSError:
+        shutil.copy2(src, dest)
+    return dest
+
+
+def ensure_poster(slug, force=False, width=POSTER_W, height=POSTER_H, wait=POSTER_WAIT_MS):
+    """Render poc.html → poster.png via shot.py; mirror into _exports/.
+
+    Additive only: never touches poc.html / post.md / ad.mp4. Returns a dict with
+    path, export, bytes, cached. Raises ValueError for bad/missing input, RuntimeError
+    if the browser capture fails.
+    """
+    import shot  # lazy: keeps board import light; shot is stdlib-only, no trawl deps
+
+    if not _valid_slug(slug):
+        raise ValueError("invalid slug")
+    html = POSTS_DIR / slug / "poc.html"
+    if not html.is_file():
+        raise ValueError("no poc.html for this post (video-only posts have no HTML poster)")
+    out = POSTS_DIR / slug / POSTER_NAME
+    cached = out.is_file() and out.stat().st_size > 0 and not force
+    if not cached:
+        shot.capture(html, out, width=width, height=height, wait=wait)
+    exp = _mirror_export(out, slug)
+    return {
+        "slug": slug,
+        "path": str(out),
+        "export": str(exp),
+        "bytes": out.stat().st_size,
+        "cached": cached,
+    }
+
+
+def open_folder(slug=None, exports=False):
+    """Open Explorer on a post folder (PNG selected if present) or on Posts/_exports/.
+
+    Returns True if the OS call was issued. Path-traversal / missing targets → False.
+    """
+    if exports or not slug:
+        return _reveal(exports_dir(), select=False)
+    if not _valid_slug(slug):
+        return False
+    folder = POSTS_DIR / slug
+    if not folder.is_dir():
+        return False
+    for name in (POSTER_NAME, "ad.mp4", "poc.html", "post.md"):
+        cand = folder / name
+        if cand.is_file():
+            return _reveal(cand, select=True)
+    return _reveal(folder, select=False)
+
+
+def _reveal(path, select=False):
+    """Windows: explorer /select or startfile. Other OS: xdg-open the folder."""
+    path = Path(path).resolve()
+    if os.name == "nt":
+        if select and path.is_file():
+            subprocess.Popen(["explorer", f"/select,{path}"])
+            return True
+        if path.is_dir():
+            os.startfile(str(path))  # local trusted path only
+            return True
+        if path.is_file():
+            subprocess.Popen(["explorer", f"/select,{path}"])
+            return True
+        return False
+    folder = path if path.is_dir() else path.parent
+    try:
+        subprocess.Popen(["xdg-open", str(folder)])
+        return True
+    except OSError:
+        return False
 
 
 def queue_specs(ptype, specs):
@@ -199,8 +321,14 @@ def selfcheck(posts_dir):
     assert isinstance(posts, list)
     for p in posts:
         assert p["slug"] and "hook" in p and "mtime" in p, p
+        assert "has_poster" in p
     assert mark_posted("__nope__", "x") is False          # unknown slug must not raise or change
     assert poc_bytes("../etc") is None                     # path traversal rejected
+    assert poster_bytes("../etc") is None
+    assert open_folder("../etc") is False
+    # exports dir is creatable and does not look like a post (no post.md)
+    d = exports_dir()
+    assert d.is_dir() and d.name == EXPORTS_NAME
     print(f"ok — {len(posts)} posts parsed from {POSTS_DIR}; log truth respected")
 
 
@@ -309,6 +437,10 @@ PAGE = r"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
  .bar .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
  .bar button.approve.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
  .bar button.reject.on{background:var(--field);border-color:var(--sub)}
+ .bar button:disabled{opacity:.4;cursor:not-allowed}
+ .png-thumb{width:42px;height:42px;object-fit:cover;border-radius:8px;border:1.5px solid var(--line);
+   cursor:grab;vertical-align:middle;background:var(--field);flex:none}
+ .png-thumb:active{cursor:grabbing}
  .state{font-size:13.5px;font-weight:600;color:var(--sub)}
  .note{flex:1 1 100%;margin-top:6px}
  .note input{width:100%;font:inherit;font-size:15px;padding:10px 12px;border:1.5px solid var(--line);
@@ -421,6 +553,7 @@ PAGE = r"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
        <option value="new">Newest first</option><option value="old">Oldest first</option>
      </select>
      <button class="ghost" onclick="load()">↻ Refresh</button>
+     <button class="ghost" onclick="openFolder(null)" title="Open the central PNG exports folder">📁 Screenshots</button>
    </div>
    <div id="list"></div>
  </section>
@@ -545,6 +678,11 @@ function render(){
         <button class="primary" onclick="postTo('${p.slug}','linkedin')">Post to LinkedIn</button>
         <button class="primary" onclick="postTo('${p.slug}','x')">Post to X</button>
         <button onclick="window.open('${p.has_video?'/vid/':'/poc/'}${p.slug}','_blank')">⤢ ${p.has_video?'Video':'Poster'}</button>
+        <button onclick="savePng('${p.slug}',this)" ${p.has_poc?'':'disabled title="Needs poc.html"'}
+          title="Save poster as PNG (also lands in Posts/_exports)">⬇ PNG</button>
+        ${p.has_poster?`<img class="png-thumb" src="/png/${p.slug}?t=${Math.round(p.mtime)}" draggable="true"
+          ondragstart="dragPng(event,'${p.slug}')" title="Drag onto Desktop or a folder" alt="">`:''}
+        <button onclick="openFolder('${p.slug}')" title="Open this post's folder in Explorer">📁 Folder</button>
         <span class="sep"></span>
         <button class="approve ${a.approved===true?'on':''}" onclick="mark('${p.slug}',true)">✓ Approve</button>
         <button class="reject ${a.approved===false?'on':''}" onclick="mark('${p.slug}',false)">✕</button>
@@ -566,12 +704,46 @@ function postTo(slug,platform){
   window.open((p.has_video?'/vid/':'/poc/')+slug,'_blank');
   if(platform==='x'){
     window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(p.x_body||p.hook),'_blank');
-    toast('X composer opened — screenshot the poster & attach');
+    toast('X composer opened — use ⬇ PNG then attach (or drag the thumb)');
   }else{
     copy(p.li_body||p.hook).then(()=>{
       window.open('https://www.linkedin.com/feed/?shareActive=true','_blank');
-      toast('LinkedIn text copied — paste, then attach the poster');});
+      toast('LinkedIn text copied — use ⬇ PNG then attach (or drag the thumb)');});
   }
+}
+async function savePng(slug,btn){
+  const p=posts.find(x=>x.slug===slug);if(!p||!p.has_poc){toast('No HTML poster to capture');return;}
+  if(btn){btn.disabled=true;btn.textContent='…';}
+  try{
+    const r=await(await fetch('/api/screenshot',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({slug})})).json();
+    if(!r.ok){toast(r.error||'Capture failed');return;}
+    // browser download + keep a local copy under the post + _exports
+    const a=document.createElement('a');
+    a.href='/png/'+slug+'?download=1&t='+Date.now();
+    a.download=(slug||'poster')+'.png';
+    document.body.appendChild(a);a.click();a.remove();
+    p.has_poster=true;render();
+    toast(r.cached?'PNG ready (cached) — drag the thumb or check Downloads':
+      'PNG saved — drag the thumb, or open 📁 Screenshots');
+  }catch(e){toast('Capture failed');}
+  finally{if(btn){btn.disabled=false;btn.textContent='⬇ PNG';}}
+}
+function dragPng(ev,slug){
+  // Chrome/Edge: dragging this thumb onto Desktop/Explorer drops the real PNG file.
+  const url=location.origin+'/png/'+slug;
+  const name=(slug||'poster')+'.png';
+  try{ev.dataTransfer.setData('DownloadURL','image/png:'+name+':'+url);}catch(e){}
+  ev.dataTransfer.setData('text/uri-list',url);
+  ev.dataTransfer.effectAllowed='copy';
+}
+async function openFolder(slug){
+  try{
+    const body=slug?{slug}:{exports:true};
+    const r=await(await fetch('/api/open_folder',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)})).json();
+    if(!r.ok)toast(r.error||'Could not open folder');
+  }catch(e){toast('Could not open folder');}
 }
 async function markPosted(slug){
   const set=used[slug];
